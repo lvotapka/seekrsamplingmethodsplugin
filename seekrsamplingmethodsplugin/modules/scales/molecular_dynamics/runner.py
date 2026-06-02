@@ -49,6 +49,7 @@ def is_finished_md_with_message(
         stage.completion_criteria
     if completion_criteria.type == "cv_value_attained":
         cv = model.get_cv_by_name(completion_criteria.cv_name)
+        found = True
         if cv_values is None:
             checkpoint_information_basename = engines_runner\
                 .get_checkpoint_information_basename(swarm_id)

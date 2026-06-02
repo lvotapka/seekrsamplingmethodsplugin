@@ -19,13 +19,14 @@ allow visualization and quantification of those results.
 
 # This list must contain any strings named with the 'type' attribute of a 
 # sampling method to be analyzed.
-AVAILABLE_ANALYZERS = []
+AVAILABLE_ANALYZERS = ["random_accelerated"]
 
 import typing
 
 import seekr.modules.structures as structures
-#  Place other imports here
-# import seekrsamplingmethodsplugin.modules.analyzers.SOMETHING_analyzer as plugin_analyzers_SOMETHING_analyzer
+import seekrsamplingmethodsplugin.modules.analyzers\
+    .random_accelerated_analyzer \
+        as plugin_analyzers_random_accelerated_analyzer
 
 def analyze(
         model: structures.Seekr_model,
@@ -34,8 +35,9 @@ def analyze(
         min_time_ps: float = 0.0,
         max_time_ps: float | None = None,
         error_analysis_method: str = "bootstrap",
-        only_extract_data: bool = False
-    ) -> tuple[bool, typing.Any]: #| plugin_analyzers_SOMETHING_analyzer.SOMETHING_analyzer
+        only_extract_data: bool = False,
+        num_error_samples: int | None = None
+    ) -> tuple[bool, typing.Any]:
     """
     A call to analyze.py in seekr will automatically go to here if the plugin is
     included in the model. If the used sampling method is found in
@@ -44,8 +46,14 @@ def analyze(
     stage = model.stages[stage_index-1]
     is_found = False
     analysis = None
-    #if stage.sampling_method.type == "SOMETHING":
-    #    is_found = True
-    #    analysis = plugin_analyzers_SOMETHING_analyzer.analyze_SOMETHING(...)
+    if stage.sampling_method.type == "random_accelerated":
+        is_found = True
+        analysis = plugin_analyzers_random_accelerated_analyzer\
+            .analyze_random_accelerated(
+                model=model, stage_index=stage_index,
+                skip_checks=skip_checks,
+                error_analysis_method=error_analysis_method,
+                only_extract_data=only_extract_data,
+                num_error_samples=num_error_samples)
 
     return is_found, analysis

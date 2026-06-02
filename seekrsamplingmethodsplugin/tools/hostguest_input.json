@@ -76,9 +76,53 @@
         }
     ],
     "initial_scopes": {
-        "molecular_dynamics": "unpartitioned"
+        "molecular_dynamics": "unpartitioned",
+        "logistic": "unpartitioned"
     },
     "stages": [
+        {
+            "type": "md_stage",
+            "name": "equilibration",
+            "input_stage_name": "initial",
+            "run_minimization": true,
+            "checkpoint_interval": 1000,
+            "ensemble": {
+                "type": "NVT"
+            },
+            "sampling_method": {
+                "type": "conventional"
+            },
+            "completion_criteria": {
+                "type": "number_of_steps",
+                "number_of_steps": 10000
+            },
+            "restraints": [],
+            "reporters": [
+                {
+                    "type": "state",
+                    "name": null,
+                    "to_stdout": true,
+                    "interval": 2000
+                },
+                {
+                    "type": "position",
+                    "name": "stage1_position_reporter",
+                    "interval": 2000,
+                    "enforce_periodic_box": true,
+                    "atom_subset": null,
+                    "extension": "dcd"
+                }
+            ]
+        },
+        {
+            "type": "swarm_structures_from_reporter_stage",
+            "name": "swarm_structures_from_eq",
+            "comment": "Assign swarm starting structures from a reporter.",
+            "input_stage_name": "equilibration",
+            "set_name": "main",
+            "reporter_name": "stage1_position_reporter",
+            "number_of_velocity_resamples": 10
+        },
         {
             "type": "md_stage",
             "name": "ramd",
@@ -94,7 +138,7 @@
                 "ligand_selection_name": "guest",
                 "receptor_selection_name": "host",
                 "steps_per_update": 50,
-                "force_magnitude": 3.5,
+                "force_magnitude": 2.5,
                 "cutoff_distance": 0.025,
                 "ramp_start_step": 0,
                 "ramp_force_increase_per_step": 4e-07

@@ -3,6 +3,7 @@ The openmm interface for a Random Accelerated Molecular Dynamics (RAMD)
 sampling method for this plugin.
 """
 
+import os
 import typing
 
 from attrs import define
@@ -44,6 +45,7 @@ class Random_accelerated_md_openmm_interface(
     _simulation_obj: openmm_app.Simulation | None = None
     _steps_between_evals: int = 0
     _model: structures.Seekr_model | None = None
+    _directory: str = ""
     _openmm_cv_list: list[typing.Any] | None = None
     _cv_interface_list: list[collective_variables_openmm_interface\
                              .CV_openmm_interface] | None = None
@@ -76,7 +78,7 @@ class Random_accelerated_md_openmm_interface(
             "The system object must be assigned before calling this method."
         model: structures.Seekr_model = kwargs["model"]
         self._model = model
-        directory: str = kwargs["directory"]
+        self._directory: str = kwargs["directory"]
         md_engine = self._model.get_engine_by_scale_type("molecular_dynamics")
         assert md_engine is not None
         assert md_engine.type == "openmm", \
@@ -185,7 +187,25 @@ class Random_accelerated_md_openmm_interface(
                               .value_in_unit(unit.dalton))
         self._lig_masses = np.array(lig_masses)
         self._ligand_atom_indices = lig_indices
-        
+        return
+    
+    def post_simulation_procedures(
+            self, 
+            **kwargs: typing.Any
+            ) -> None:
+        """
+        Perform any necessary procedures after the simulation ends.
+        """
+        swarm_id = kwargs["swarm_id"]
+        step_count = int(self._simulation_obj.context.getStepCount())
+        # Write the RAMD simulation length
+        output_basename = f"ramd_swarm_{swarm_id}.out"
+        output_filename = os.path.join(self._directory, output_basename)
+        block_str = \
+              f"RAMD Simulation Ending\n" \
+            + f"step_count: {step_count}\n" 
+        with open(output_filename, "w") as f:
+            f.write(block_str)
         return
     
     def perform_eval(

@@ -9,7 +9,9 @@ import typing
 
 import seekr.modules.structures as structures
 
-#import seekrsamplingmethodsplugin.modules.scales.custom_scale.preparer as custom_scale_preparer
+import seekrsamplingmethodsplugin.modules.scales.logistic\
+    .swarm_structure_from_reporter_logistic_stage \
+        as swarm_structure_from_reporter_logistic_stage
 
 # This dictionary is needed to structure/unstructure prepare stage objects.
 
@@ -33,7 +35,9 @@ def generate_files(
 #stage_inputs: typing.Dict[str, typing.Any] \
 #    = {"custom_stage": custom_scale_preparer.Input_stage_custom, }
 stage_inputs: typing.Dict[str, typing.Any] \
-    = {}
+    = {"swarm_structures_from_reporter_stage": \
+        swarm_structure_from_reporter_logistic_stage\
+            .Input_stage_swarm_structures_from_reporter, }
 
 def register_structure_hooks(
         converter: typing.Any

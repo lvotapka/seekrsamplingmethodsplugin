@@ -41,6 +41,9 @@ import seekrsamplingmethodsplugin.modules.sampling_methods.preparer \
     as plugin_sampling_preparer
 import seekrsamplingmethodsplugin.modules.completion_criteria.structures \
     as plugin_compl_crit_struct
+import seekrsamplingmethodsplugin.modules.scales.logistic\
+    .swarm_structure_from_reporter_logistic_stage \
+        as swarm_structure_from_reporter_logistic_stage
 
 SEEKR_DIRECTORY = os.path.dirname(seekr.__file__)
 DATA_DIRECTORY = os.path.abspath(os.path.join(SEEKR_DIRECTORY, "data"))
@@ -125,45 +128,70 @@ def create_toy_model_input(
     #seekr_input.partitions[0].anchor_scheme = anchor_scheme
 
     stage1 = md_preparer.Input_stage_md()
+    stage1.name = "equilibration"
+    stage1.run_minimization = False
+    stage1.checkpoint_interval = 100
+    stage1.ensemble = base.NVT_ensemble()
+    stage1.sampling_method = sampling_preparer.Conventional_md_input()
+    stage1.completion_criteria = compl_crit_struct.Number_of_steps_completion_criteria()
+    stage1.completion_criteria.number_of_steps = 10000
+    stage1_state_reporter = reporters_preparer.State_reporter_input()
+    stage1_state_reporter.to_stdout = True
+    stage1_state_reporter.interval = 2000
+    stage1_position_reporter = reporters_preparer.Position_reporter_input()
+    stage1_position_reporter.name = "stage1_position_reporter"
+    stage1_position_reporter.interval = 2000
+    stage1_position_reporter.enforce_periodic_box = False
+    stage1_position_reporter.extension = "dcd"
+    stage1.reporters = [stage1_state_reporter, stage1_position_reporter]
+
+    stage2 = swarm_structure_from_reporter_logistic_stage\
+        .Input_stage_swarm_structures_from_reporter()
+    stage2.name = "swarm_structures_from_eq"
+    stage2.reporter_name = "stage1_position_reporter"
+    stage2.input_stage_name = "equilibration"
+    stage2.number_of_velocity_resamples = 1
+
+    stage3 = md_preparer.Input_stage_md()
     #if use_smd:
     if True: #replace with sampling_method someday
-        stage1.name = "ramd"
-        stage1.sampling_method = plugin_sampling_preparer\
+        stage3.name = "ramd"
+        stage3.sampling_method = plugin_sampling_preparer\
             .Random_accelerated_md_sampling_method_input()
-        stage1.sampling_method.ligand_selection_name = "particle0"
-        stage1.sampling_method.receptor_selection_name = None # None for toy
-        stage1.sampling_method.steps_per_update = 50
-        stage1.sampling_method.force_magnitude = 7.0
-        stage1.sampling_method.cutoff_distance = 0.025
-        stage1.sampling_method.ramp_start_step = 0
-        stage1.sampling_method.ramp_force_increase_per_step = 4.0e-7
+        stage3.sampling_method.ligand_selection_name = "particle0"
+        stage3.sampling_method.receptor_selection_name = None # None for toy
+        stage3.sampling_method.steps_per_update = 50
+        stage3.sampling_method.force_magnitude = 7.0
+        stage3.sampling_method.cutoff_distance = 0.025
+        stage3.sampling_method.ramp_start_step = 0
+        stage3.sampling_method.ramp_force_increase_per_step = 4.0e-7
 
-        stage1_position_reporter = reporters_preparer.Position_reporter_input()
-        stage1_position_reporter.interval = 500
-        stage1_position_reporter.extension = "dcd"
-        stage1_position_reporter.enforce_periodic_box = False
+        stage3_position_reporter = reporters_preparer.Position_reporter_input()
+        stage3_position_reporter.interval = 500
+        stage3_position_reporter.extension = "dcd"
+        stage3_position_reporter.enforce_periodic_box = False
         
     #else:
     #    stage2.name = "scaled"
     #    ...
         
-    stage1.run_minimization = False
-    stage1.checkpoint_interval = 10
-    stage1.ensemble = base.NVT_ensemble()
-    stage1.completion_criteria = plugin_compl_crit_struct\
+    stage3.run_minimization = False
+    stage3.checkpoint_interval = 10
+    stage3.ensemble = base.NVT_ensemble()
+    stage3.completion_criteria = plugin_compl_crit_struct\
         .CV_value_attained_completion_criteria()
-    stage1.completion_criteria.eval_interval = 50
-    stage1.completion_criteria.cv_name = "lig_y_distance"
-    stage1.completion_criteria.cv_inequality = "greater_than"
-    stage1.completion_criteria.cv_value = 0.7
+    stage3.completion_criteria.eval_interval = 50
+    stage3.completion_criteria.cv_name = "lig_y_distance"
+    stage3.completion_criteria.cv_inequality = "greater_than"
+    stage3.completion_criteria.cv_value = 0.7
 
-    stage1_state_reporter = reporters_preparer.State_reporter_input()
-    stage1_state_reporter.to_stdout = True
-    stage1_state_reporter.interval = 50
+    stage3_state_reporter = reporters_preparer.State_reporter_input()
+    stage3_state_reporter.to_stdout = True
+    stage3_state_reporter.interval = 50
     
-    stage1.reporters = [stage1_state_reporter, stage1_position_reporter]
+    stage3.reporters = [stage3_state_reporter, stage3_position_reporter]
 
-    seekr_input.stages = [stage1]
+    seekr_input.stages = [stage1, stage2, stage3]
     
     external_cv_input = external_cv.External_cv_input()
     external_cv_input.name = "lig_y_distance"
@@ -278,47 +306,72 @@ def create_host_guest_example_input(
         "logistic": "unpartitioned",
     }
 
-    
     stage1 = md_preparer.Input_stage_md()
+    stage1.name = "equilibration"
+    stage1.run_minimization = True
+    stage1.checkpoint_interval = 1000
+    stage1.ensemble = base.NVT_ensemble()
+    stage1.sampling_method = sampling_preparer.Conventional_md_input()
+    stage1.completion_criteria = compl_crit_struct.Number_of_steps_completion_criteria()
+    stage1.completion_criteria.number_of_steps = 10000
+    stage1_state_reporter = reporters_preparer.State_reporter_input()
+    stage1_state_reporter.to_stdout = True
+    stage1_state_reporter.interval = 2000
+    stage1_position_reporter = reporters_preparer.Position_reporter_input()
+    stage1_position_reporter.name = "stage1_position_reporter"
+    stage1_position_reporter.interval = 2000
+    stage1_position_reporter.atom_subset = None
+    stage1_position_reporter.extension = "dcd"
+    stage1.reporters = [stage1_state_reporter, stage1_position_reporter]
+    stage1.input_stage_name = "initial"
+
+    stage2 = swarm_structure_from_reporter_logistic_stage\
+        .Input_stage_swarm_structures_from_reporter()
+    stage2.name = "swarm_structures_from_eq"
+    stage2.reporter_name = "stage1_position_reporter"
+    stage2.input_stage_name = "equilibration"
+    stage2.number_of_velocity_resamples = 10
+
+    stage3 = md_preparer.Input_stage_md()
     #if use_smd:
     if True: #replace with sampling_method someday
-        stage1.name = "ramd"
-        stage1.sampling_method = plugin_sampling_preparer\
+        stage3.name = "ramd"
+        stage3.sampling_method = plugin_sampling_preparer\
             .Random_accelerated_md_sampling_method_input()
-        stage1.sampling_method.ligand_selection_name = "guest"
-        stage1.sampling_method.receptor_selection_name = "host"
-        stage1.sampling_method.steps_per_update = 50
-        stage1.sampling_method.force_magnitude = 3.5
-        stage1.sampling_method.cutoff_distance = 0.025
-        stage1.sampling_method.ramp_start_step = 0
-        stage1.sampling_method.ramp_force_increase_per_step = 4.0e-7
+        stage3.sampling_method.ligand_selection_name = "guest"
+        stage3.sampling_method.receptor_selection_name = "host"
+        stage3.sampling_method.steps_per_update = 50
+        stage3.sampling_method.force_magnitude = 2.5
+        stage3.sampling_method.cutoff_distance = 0.025
+        stage3.sampling_method.ramp_start_step = 0
+        stage3.sampling_method.ramp_force_increase_per_step = 4.0e-7
 
-        stage1_position_reporter = reporters_preparer.Position_reporter_input()
-        stage1_position_reporter.interval = 500
-        stage1_position_reporter.extension = "dcd"
-        stage1_position_reporter.enforce_periodic_box = True
+        stage3_position_reporter = reporters_preparer.Position_reporter_input()
+        stage3_position_reporter.interval = 500
+        stage3_position_reporter.extension = "dcd"
+        stage3_position_reporter.enforce_periodic_box = True
         
     #else:
     #    stage2.name = "scaled"
     #    ...
         
-    stage1.run_minimization = False
-    stage1.checkpoint_interval = 10
-    stage1.ensemble = base.NVT_ensemble()
-    stage1.completion_criteria = plugin_compl_crit_struct\
+    stage3.run_minimization = False
+    stage3.checkpoint_interval = 10
+    stage3.ensemble = base.NVT_ensemble()
+    stage3.completion_criteria = plugin_compl_crit_struct\
         .CV_value_attained_completion_criteria()
-    stage1.completion_criteria.eval_interval = 50
-    stage1.completion_criteria.cv_name = "distance_host_guest"
-    stage1.completion_criteria.cv_inequality = "greater_than"
-    stage1.completion_criteria.cv_value = 3.0
+    stage3.completion_criteria.eval_interval = 50
+    stage3.completion_criteria.cv_name = "distance_host_guest"
+    stage3.completion_criteria.cv_inequality = "greater_than"
+    stage3.completion_criteria.cv_value = 3.0
 
-    stage1_state_reporter = reporters_preparer.State_reporter_input()
-    stage1_state_reporter.to_stdout = True
-    stage1_state_reporter.interval = 5000
+    stage3_state_reporter = reporters_preparer.State_reporter_input()
+    stage3_state_reporter.to_stdout = True
+    stage3_state_reporter.interval = 5000
     
-    stage1.reporters = [stage1_state_reporter, stage1_position_reporter]
+    stage3.reporters = [stage3_state_reporter, stage3_position_reporter]
 
-    seekr_input.stages = [stage1]
+    seekr_input.stages = [stage1, stage2, stage3]
 
     seekr_input.partitions = [preparer.Partition_input()]
     
