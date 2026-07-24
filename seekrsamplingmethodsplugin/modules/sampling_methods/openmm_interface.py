@@ -44,6 +44,7 @@ class Random_accelerated_md_openmm_interface(
     _system_obj: openmm.System | None = None
     _simulation_obj: openmm_app.Simulation | None = None
     _steps_between_evals: int = 0
+    _random_seed: int = 0
     _model: structures.Seekr_model | None = None
     _directory: str = ""
     _openmm_cv_list: list[typing.Any] | None = None

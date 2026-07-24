@@ -9,7 +9,10 @@ import typing
 import seekr.modules.collective_variables.base as seekr_cv_base
 
 # The file imported below must be created in this plugin
-#import seekrsamplingmethodsplugin.modules.collective_variables.YOUR_cv as YOUR_cv
+import seekrsamplingmethodsplugin.modules.collective_variables\
+    .rmsd_no_align_cv as rmsd_no_align_cv
+import seekrsamplingmethodsplugin.modules.collective_variables\
+    .min_pair_dist_cv as min_pair_dist_cv
 
 # This object connects the name of CV object to the CV_input object:
 # The former is defined for the prepare stage, and is simpler in general.
@@ -19,4 +22,5 @@ import seekr.modules.collective_variables.base as seekr_cv_base
 #    = {"your_cv": z_cv.YOUR_CV_input, }
 # Leave blank for now.
 cv_inputs: typing.Dict[str, typing.Type[seekr_cv_base.Base_CV_input]] \
-     = {} 
+     = {"rmsd_no_align_cv": rmsd_no_align_cv.RMSD_no_align_CV_input,
+        "min_pair_dist_cv": min_pair_dist_cv.Min_pair_dist_CV_input} 

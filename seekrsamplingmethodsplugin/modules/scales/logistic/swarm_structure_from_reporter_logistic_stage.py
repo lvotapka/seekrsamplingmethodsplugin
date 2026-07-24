@@ -210,7 +210,7 @@ class Stage_swarm_structures_from_reporter(
         """
         for instruction in instructions:
             log_filename = model.get_synopsis_filename()
-            base.configure_file_and_stdout_logger(
+            base.configure_logging(
                 log_filename, overwrite=False)
             logging.info(instruction.message)
     
@@ -250,7 +250,8 @@ class Input_stage_swarm_structures_from_reporter(
             self, 
             index: int,
             scope: str,
-            dummy_settings: typing.Any = None
+            dummy_settings: typing.Any = None,
+            dummy_directory: str = ""
             ) -> typing.Tuple[Stage_swarm_structures_from_reporter, str]:
         """
         Given this input stage object, create the model's Stage object.
@@ -290,8 +291,10 @@ def _get_topology_file(
         if input_stage.scope == "unpartitioned":
             input_positions_filenames = md_engine.unpartitioned_settings\
                 .get_positions_full_paths(
-                    model.directory, input_stage.input_stage_index, 
-                    input_stage.set_name, swarm_id=0)
+                    #model.directory, input_stage.input_stage_index, 
+                    #input_stage.set_name, swarm_id=0)
+                    model.directory, 0, 
+                    "main", swarm_id=0)
         else:
             for anchor in model.anchors:
                 if anchor.bulk_anchor:

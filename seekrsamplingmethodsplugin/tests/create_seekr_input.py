@@ -179,7 +179,7 @@ def create_toy_input(
         vc = anchor_scheme_preparer.Voronoi_cell()
         vc.value = value
         vc.positions = [position]
-        vc.scale_types = ??? # scale type here. Example: ["molecular_dynamics"]
+        vc.scale_types = ["molecular_dynamics"]
         anchor_scheme.voronoi_cells.append(vc)
 
     # --- stage 1: equilibration ---
@@ -461,7 +461,7 @@ def create_host_guest_input(
         vc = anchor_scheme_preparer.Voronoi_cell()
         vc.value = [value]
         vc.positions = ""
-        vc.scale_types = ??? # Example: ["molecular_dynamics"]
+        vc.scale_types = ["molecular_dynamics"]
         anchor_scheme.voronoi_cells.append(vc)
     seekr_input.partitions[0].anchor_scheme = anchor_scheme
 

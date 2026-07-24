@@ -44,6 +44,10 @@ import seekrsamplingmethodsplugin.modules.completion_criteria.structures \
 import seekrsamplingmethodsplugin.modules.scales.logistic\
     .swarm_structure_from_reporter_logistic_stage \
         as swarm_structure_from_reporter_logistic_stage
+import seekrsamplingmethodsplugin.modules.reporters.preparer \
+    as plugin_reporters_preparer
+import seekrsamplingmethodsplugin.modules.reporters.features \
+    as plugin_features
 
 SEEKR_DIRECTORY = os.path.dirname(seekr.__file__)
 DATA_DIRECTORY = os.path.abspath(os.path.join(SEEKR_DIRECTORY, "data"))
@@ -313,13 +317,16 @@ def create_host_guest_example_input(
     stage1.ensemble = base.NVT_ensemble()
     stage1.sampling_method = sampling_preparer.Conventional_md_input()
     stage1.completion_criteria = compl_crit_struct.Number_of_steps_completion_criteria()
-    stage1.completion_criteria.number_of_steps = 10000
+    stage1.completion_criteria.number_of_steps = 100000
+    positional_restraint = restraints_preparer.Positional_restraint_input()
+    positional_restraint.selection_name = "o5_group"
+    stage1.restraints = [positional_restraint]
     stage1_state_reporter = reporters_preparer.State_reporter_input()
     stage1_state_reporter.to_stdout = True
-    stage1_state_reporter.interval = 2000
+    stage1_state_reporter.interval = 20000
     stage1_position_reporter = reporters_preparer.Position_reporter_input()
     stage1_position_reporter.name = "stage1_position_reporter"
-    stage1_position_reporter.interval = 2000
+    stage1_position_reporter.interval = 20000
     stage1_position_reporter.atom_subset = None
     stage1_position_reporter.extension = "dcd"
     stage1.reporters = [stage1_state_reporter, stage1_position_reporter]
@@ -330,7 +337,7 @@ def create_host_guest_example_input(
     stage2.name = "swarm_structures_from_eq"
     stage2.reporter_name = "stage1_position_reporter"
     stage2.input_stage_name = "equilibration"
-    stage2.number_of_velocity_resamples = 10
+    stage2.number_of_velocity_resamples = 5
 
     stage3 = md_preparer.Input_stage_md()
     #if use_smd:
@@ -364,12 +371,33 @@ def create_host_guest_example_input(
     stage3.completion_criteria.cv_name = "distance_host_guest"
     stage3.completion_criteria.cv_inequality = "greater_than"
     stage3.completion_criteria.cv_value = 3.0
-
+    positional_restraint = restraints_preparer.Positional_restraint_input()
+    positional_restraint.selection_name = "o5_group"
+    stage3.restraints = [positional_restraint]
     stage3_state_reporter = reporters_preparer.State_reporter_input()
     stage3_state_reporter.to_stdout = True
     stage3_state_reporter.interval = 5000
+
+    # Example Feature_reporter: one pair_distance (atom vs COM) and one dihedral.
+    stage3_feature_reporter = plugin_reporters_preparer.Feature_reporter_input()
+    stage3_feature_reporter.name = "stage3_feature_reporter"
+    stage3_feature_reporter.interval = 500
+    stage3_feature_reporter.features = [
+        plugin_features.Pair_distance_feature(
+            atom_i=15,
+            atom_j=ligand_noh_indices_md,
+            name="host_O5_guest_noH",
+        ),
+        plugin_features.Dihedral_feature(
+            atom_i=147,
+            atom_j=150,
+            atom_k=152,
+            atom_l=155,
+        ),
+    ]
     
-    stage3.reporters = [stage3_state_reporter, stage3_position_reporter]
+    stage3.reporters = [
+        stage3_state_reporter, stage3_position_reporter, stage3_feature_reporter]
 
     seekr_input.stages = [stage1, stage2, stage3]
 

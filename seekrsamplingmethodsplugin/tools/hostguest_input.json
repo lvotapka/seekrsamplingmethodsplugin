@@ -15,6 +15,7 @@
             "constraints": "hbonds",
             "hydrogen_mass": null,
             "timestep": 0.002,
+            "friction_coefficient": 1.0,
             "integrator_type": "langevin",
             "platform_type": "cuda",
             "unpartitioned_settings": {
@@ -90,29 +91,39 @@
                 "type": "NVT"
             },
             "sampling_method": {
-                "type": "conventional"
+                "type": "conventional",
+                "heat_ramp_temperatures": null,
+                "heat_ramp_step_interval": null
             },
             "completion_criteria": {
                 "type": "number_of_steps",
-                "number_of_steps": 10000
+                "number_of_steps": 100000
             },
-            "restraints": [],
+            "restraints": [
+                {
+                    "type": "positional",
+                    "selection_name": "o5_group",
+                    "force_constant": 400.0,
+                    "coordinates_filename": null
+                }
+            ],
             "reporters": [
                 {
                     "type": "state",
                     "name": null,
                     "to_stdout": true,
-                    "interval": 2000
+                    "interval": 20000
                 },
                 {
                     "type": "position",
                     "name": "stage1_position_reporter",
-                    "interval": 2000,
+                    "interval": 20000,
                     "enforce_periodic_box": true,
                     "atom_subset": null,
                     "extension": "dcd"
                 }
-            ]
+            ],
+            "timestep": null
         },
         {
             "type": "swarm_structures_from_reporter_stage",
@@ -121,7 +132,7 @@
             "input_stage_name": "equilibration",
             "set_name": "main",
             "reporter_name": "stage1_position_reporter",
-            "number_of_velocity_resamples": 10
+            "number_of_velocity_resamples": 5
         },
         {
             "type": "md_stage",
@@ -150,7 +161,14 @@
                 "cv_inequality": "greater_than",
                 "cv_value": 3.0
             },
-            "restraints": [],
+            "restraints": [
+                {
+                    "type": "positional",
+                    "selection_name": "o5_group",
+                    "force_constant": 400.0,
+                    "coordinates_filename": null
+                }
+            ],
             "reporters": [
                 {
                     "type": "state",
@@ -165,8 +183,30 @@
                     "enforce_periodic_box": true,
                     "atom_subset": null,
                     "extension": "dcd"
+                },
+                {
+                    "type": "feature",
+                    "name": "stage3_feature_reporter",
+                    "interval": 500,
+                    "features": [
+                        {
+                            "atom_i": 15,
+                            "atom_j": [147,150,152,155,158],
+                            "type": "pair_distance",
+                            "name": "host_O5_guest_noH"
+                        },
+                        {
+                            "atom_i": 147,
+                            "atom_j": 150,
+                            "atom_k": 152,
+                            "atom_l": 155,
+                            "type": "dihedral",
+                            "name": null
+                        }
+                    ]
                 }
-            ]
+            ],
+            "timestep": null
         }
     ],
     "partitions": [
