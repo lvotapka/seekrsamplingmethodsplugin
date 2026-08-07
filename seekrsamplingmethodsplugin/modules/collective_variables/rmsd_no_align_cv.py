@@ -5,10 +5,12 @@ Model and input classes for a RMSD collective variable where no
 alignment is performed. This precludes the need for the RMSD_plus 
 seekr plugin, which is hard to install.
 """
-
+import os
 import typing
+import shutil
 
 from attrs import define, field, validators
+import numpy as np
 import mdtraj
 
 import seekr.modules.base as seekr_base

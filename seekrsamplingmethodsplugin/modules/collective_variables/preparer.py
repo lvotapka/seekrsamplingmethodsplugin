@@ -18,9 +18,7 @@ import seekrsamplingmethodsplugin.modules.collective_variables\
 # The former is defined for the prepare stage, and is simpler in general.
 # The latter is defined for the model, and tends to include more attributes
 #  and methods.
-#cv_inputs: typing.Dict[str, typing.Type[seekr_cv_base.Base_CV_input]] \
-#    = {"your_cv": z_cv.YOUR_CV_input, }
-# Leave blank for now.
+
 cv_inputs: typing.Dict[str, typing.Type[seekr_cv_base.Base_CV_input]] \
-     = {"rmsd_no_align_cv": rmsd_no_align_cv.RMSD_no_align_CV_input,
-        "min_pair_dist_cv": min_pair_dist_cv.Min_pair_dist_CV_input} 
+     = {"rmsd_no_align": rmsd_no_align_cv.RMSD_no_align_CV_input,
+        "min_pair_dist": min_pair_dist_cv.Min_pair_dist_CV_input} 

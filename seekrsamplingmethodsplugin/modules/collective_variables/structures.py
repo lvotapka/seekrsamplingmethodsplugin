@@ -21,5 +21,5 @@ import seekrsamplingmethodsplugin.modules.collective_variables\
 #  the object.
 
 cvs: typing.Dict[str, typing.Type[seekr_cv_base.Base_CV]] \
-    = {"rmsd_no_align_cv": rmsd_no_align_cv.RMSD_no_align_CV,
-       "min_pair_dist_cv": min_pair_dist_cv.Min_pair_dist_CV}
+    = {"rmsd_no_align": rmsd_no_align_cv.RMSD_no_align_CV,
+       "min_pair_dist": min_pair_dist_cv.Min_pair_dist_CV}

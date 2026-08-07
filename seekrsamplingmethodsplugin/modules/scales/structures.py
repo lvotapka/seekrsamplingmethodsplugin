@@ -13,6 +13,9 @@ import seekrsamplingmethodsplugin.modules.scales.logistic\
         as swarm_structure_from_reporter_logistic_stage
 import seekrsamplingmethodsplugin.modules.scales.logistic\
     .structures as logistic_structures
+import seekrsamplingmethodsplugin.modules.scales.logistic\
+    .egress_pathway_logistic_stage \
+        as egress_pathway_logistic_stage
 
 # This dictionary is needed by seekr to structure/unstructure data for the model file,
 #  and its key is the .type attribute of the object, while the value is the class of
@@ -25,7 +28,9 @@ scales: typing.Dict[str, typing.Any] \
 stages: typing.Dict[str, typing.Any] \
     = {"swarm_structures_from_reporter_stage": \
         swarm_structure_from_reporter_logistic_stage\
-            .Stage_swarm_structures_from_reporter,}
+            .Stage_swarm_structures_from_reporter,
+        "egress_pathway_stage": \
+            egress_pathway_logistic_stage.Stage_egress_pathway, }
 
 def register_structure_hooks(
         converter: typing.Any

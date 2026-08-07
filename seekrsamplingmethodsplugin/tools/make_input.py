@@ -39,6 +39,10 @@ import seekrsamplingmethodsplugin.modules.sampling_methods.structures \
     as plugin_sampling_structures
 import seekrsamplingmethodsplugin.modules.sampling_methods.preparer \
     as plugin_sampling_preparer
+import seekrsamplingmethodsplugin.modules.collective_variables.rmsd_no_align_cv \
+    as plugin_rmsd_no_align_cv
+import seekrsamplingmethodsplugin.modules.collective_variables.min_pair_dist_cv \
+    as plugin_min_pair_dist_cv
 import seekrsamplingmethodsplugin.modules.completion_criteria.structures \
     as plugin_compl_crit_struct
 import seekrsamplingmethodsplugin.modules.scales.logistic\
@@ -48,6 +52,11 @@ import seekrsamplingmethodsplugin.modules.reporters.preparer \
     as plugin_reporters_preparer
 import seekrsamplingmethodsplugin.modules.reporters.features \
     as plugin_features
+import seekrsamplingmethodsplugin.modules.reporters.conditions \
+    as plugin_conditions
+import seekrsamplingmethodsplugin.modules.scales.logistic\
+    .egress_pathway_logistic_stage \
+        as egress_pathway_logistic_stage
 
 SEEKR_DIRECTORY = os.path.dirname(seekr.__file__)
 DATA_DIRECTORY = os.path.abspath(os.path.join(SEEKR_DIRECTORY, "data"))
@@ -166,7 +175,7 @@ def create_toy_model_input(
         stage3.sampling_method.receptor_selection_name = None # None for toy
         stage3.sampling_method.steps_per_update = 50
         stage3.sampling_method.force_magnitude = 7.0
-        stage3.sampling_method.cutoff_distance = 0.025
+        stage3.sampling_method.cutoff_distance = 0.0025
         stage3.sampling_method.ramp_start_step = 0
         stage3.sampling_method.ramp_force_increase_per_step = 4.0e-7
 
@@ -349,28 +358,60 @@ def create_host_guest_example_input(
         stage3.sampling_method.receptor_selection_name = "host"
         stage3.sampling_method.steps_per_update = 50
         stage3.sampling_method.force_magnitude = 2.5
-        stage3.sampling_method.cutoff_distance = 0.025
+        stage3.sampling_method.cutoff_distance = 0.0025
         stage3.sampling_method.ramp_start_step = 0
         stage3.sampling_method.ramp_force_increase_per_step = 4.0e-7
 
-        stage3_position_reporter = reporters_preparer.Position_reporter_input()
-        stage3_position_reporter.interval = 500
-        stage3_position_reporter.extension = "dcd"
-        stage3_position_reporter.enforce_periodic_box = True
+        #stage3_position_reporter = reporters_preparer.Position_reporter_input()
+        #stage3_position_reporter.interval = 500
+        #stage3_position_reporter.extension = "dcd"
+        #stage3_position_reporter.enforce_periodic_box = True
         
     #else:
     #    stage2.name = "scaled"
     #    ...
         
     stage3.run_minimization = False
-    stage3.checkpoint_interval = 10
+    stage3.checkpoint_interval = 50
     stage3.ensemble = base.NVT_ensemble()
-    stage3.completion_criteria = plugin_compl_crit_struct\
+
+    rmsd_escaped = 0.5
+    rmsd_guest_cv_input = plugin_rmsd_no_align_cv.RMSD_no_align_CV_input()
+    rmsd_guest_cv_input.name = "rmsd_guest"
+    rmsd_guest_cv_input.group_name = "guest"
+    rmsd_guest_cv_input.ref_structure = os.path.join(
+        HOSTGUEST_DIRECTORY, "hostguest_at0.5.pdb")
+    rmsd_guest_cv_input.min_value = 0.0
+    rmsd_guest_cv_input.max_value = 3.0
+    rmsd_guest_cv_compl_crit = plugin_compl_crit_struct\
         .CV_value_attained_completion_criteria()
-    stage3.completion_criteria.eval_interval = 50
-    stage3.completion_criteria.cv_name = "distance_host_guest"
-    stage3.completion_criteria.cv_inequality = "greater_than"
-    stage3.completion_criteria.cv_value = 3.0
+    rmsd_guest_cv_compl_crit.eval_interval = 50
+    rmsd_guest_cv_compl_crit.cv_name = "rmsd_guest"
+    rmsd_guest_cv_compl_crit.cv_inequality = "greater_than"
+    rmsd_guest_cv_compl_crit.cv_value = rmsd_escaped
+
+    min_dist_guest_cv_input = plugin_min_pair_dist_cv.Min_pair_dist_CV_input()
+    min_dist_guest_cv_input.name = "min_dist_guest"
+    min_dist_guest_cv_input.group1_name = "host"
+    min_dist_guest_cv_input.group2_name = "guest"
+    min_dist_guest_cv_input.cutoff_distance = 1.0
+    min_dist_guest_cv_input.exponent = 50
+    min_dist_guest_cv_input.min_value = 0.0
+    min_dist_guest_cv_input.max_value = 1.0
+    min_dist_guest_cv_compl_crit = plugin_compl_crit_struct\
+        .CV_value_attained_completion_criteria()
+    min_dist_guest_cv_compl_crit.eval_interval = 50
+    min_dist_guest_cv_compl_crit.cv_name = "min_dist_guest"
+    min_dist_guest_cv_compl_crit.cv_inequality = "greater_than"
+    min_dist_guest_cv_compl_crit.cv_value = 0.8
+    
+    stage3.completion_criteria = plugin_compl_crit_struct\
+        .Combined_completion_criteria()
+    stage3.completion_criteria.completion_criteria \
+        = [rmsd_guest_cv_compl_crit, 
+           min_dist_guest_cv_compl_crit]
+    stage3.completion_criteria.operator = "and"
+
     positional_restraint = restraints_preparer.Positional_restraint_input()
     positional_restraint.selection_name = "o5_group"
     stage3.restraints = [positional_restraint]
@@ -378,6 +419,7 @@ def create_host_guest_example_input(
     stage3_state_reporter.to_stdout = True
     stage3_state_reporter.interval = 5000
 
+    """
     # Example Feature_reporter: one pair_distance (atom vs COM) and one dihedral.
     stage3_feature_reporter = plugin_reporters_preparer.Feature_reporter_input()
     stage3_feature_reporter.name = "stage3_feature_reporter"
@@ -395,48 +437,41 @@ def create_host_guest_example_input(
             atom_l=155,
         ),
     ]
-    
+    """
+    start_traj_rmsd = 0.2
+    start_traj_min_dist = 0.6
+    stage3_conditional_reporter = plugin_reporters_preparer\
+        .Conditional_position_reporter_input()
+    stage3_conditional_reporter.name = "stage3_conditional_reporter"
+    stage3_conditional_reporter.interval = 50
+    stage3_conditional_reporter.extension = "dcd"
+    stage3_conditional_reporter.enforce_periodic_box = False
+    stage3_conditional_reporter.operator = "or"
+    stage3_conditional_reporter.conditions = [
+        plugin_conditions.CV_threshold_condition(
+            cv_name="rmsd_guest",
+            cv_inequality="greater_than",
+            cv_value=start_traj_rmsd),
+        plugin_conditions.CV_threshold_condition(
+            cv_name="min_dist_guest",
+            cv_inequality="greater_than",
+            cv_value=start_traj_min_dist),
+    ]
     stage3.reporters = [
-        stage3_state_reporter, stage3_position_reporter, stage3_feature_reporter]
+        stage3_state_reporter, stage3_conditional_reporter]
 
-    seekr_input.stages = [stage1, stage2, stage3]
+    stage4 = egress_pathway_logistic_stage.Input_stage_egress_pathway()
+    stage4.name = "egress_pathway"
+    stage4.reporter_name = "stage3_conditional_reporter"
+    stage4.input_stage_name = "ramd"
+    stage4.ligand_selection_name = "guest"
+    stage4.receptor_selection_name = "host"
 
+    seekr_input.stages = [stage1, stage2, stage3, stage4]
+    
     seekr_input.partitions = [preparer.Partition_input()]
-    
-    distance_cv_input = distance_cv.Distance_cv_input()
-    distance_cv_input.name = "distance_host_guest"
-    distance_cv_input.group1_name = "host"
-    distance_cv_input.group2_name = "guest"
-    seekr_input.partitions[0].cvs = [distance_cv_input]
-    
-    """
-    bound_state_point = base.State_point()
-    bound_state_point.name = "bound"
-    bound_state_point.value = [0.05]
-    bound_state_point.end_state = True
-    bulk_state_point = base.State_point()
-    bulk_state_point.name = "bulk"
-    bulk_state_point.value = [1.35]
-    bulk_state_point.end_state = True
-    seekr_input.partitions[0].state_points = [bound_state_point, bulk_state_point]
-    
-    seekr_input.partitions[0].anchor_scheme \
-        = anchor_scheme_preparer.Anchors_as_voronoi_cells_anchor_scheme()
-    seekr_input.partitions[0].anchor_scheme.voronoi_cells = []
-    for i, (value, pdb_filename) in enumerate(zip(values_list, pdb_filenames)):
-        voronoi_cell = anchor_scheme_preparer.Voronoi_cell()
-        voronoi_cell.value = [value]
-        if pdb_filename == "":
-            pdb_filename_full = ""
-        else:
-            pdb_filename_full = os.path.join(HOSTGUEST_DIRECTORY, pdb_filename)
-        voronoi_cell.positions = ""
-        voronoi_cell.scale_types = ["molecular_dynamics"] # scale type here. Example: ["molecular_dynamics"]
-        seekr_input.partitions[0].anchor_scheme.voronoi_cells.append(voronoi_cell)
-
-    if bd:
-        seekr_input.partitions[0].anchor_scheme.voronoi_cells[-1].bulk_anchor = True
-    """
+    seekr_input.partitions[0].cvs = [rmsd_guest_cv_input, min_dist_guest_cv_input]
+    seekr_input.partitions[0].anchor_scheme = None
 
     return seekr_input
     

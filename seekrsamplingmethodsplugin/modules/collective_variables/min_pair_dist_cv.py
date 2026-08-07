@@ -30,6 +30,8 @@ class Min_pair_dist_CV(seekr_cv_base.Base_CV):
                             validator=validators.instance_of(str))
     group2_name: str = field(default="",
                             validator=validators.instance_of(str))
+    exponent: int = field(default=50)
+    cutoff_distance: float = field(default=1.0)
     name: str = field(default="",
                         validator=validators.instance_of(str))
     unit: str = field(default="nm",
@@ -39,10 +41,10 @@ class Min_pair_dist_CV(seekr_cv_base.Base_CV):
     periodic: bool = False
     min_value: float = field(default=0.0,
                              validator=validators.instance_of(float))
-    max_value: float = field(default=3.0,
+    max_value: float = field(default=1.0,
                              validator=validators.instance_of(float))
 
-    type: typing.Literal["rmsd_no_align"] = "rmsd_no_align"
+    type: typing.Literal["min_pair_dist"] = "min_pair_dist"
     
     def is_periodic(self) -> bool:
         """
@@ -111,7 +113,7 @@ class Min_pair_dist_CV_input(seekr_cv_base.Base_CV_input):
                              validator=validators.instance_of(str))
     group2_name: str = field(default="",
                              validator=validators.instance_of(str))
-    type: typing.Literal["rmsd_no_align"] = "rmsd_no_align"
+    type: typing.Literal["min_pair_dist"] = "min_pair_dist"
     _index: int = field(default=0,
                           validator=validators.instance_of(int))
     min_value: float = field(default=0.0,

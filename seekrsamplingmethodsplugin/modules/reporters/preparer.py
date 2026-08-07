@@ -66,8 +66,10 @@ class Conditional_position_reporter_input(reporters_preparer.Base_reporter_input
     extension: str = field(
         default="dcd",
         validator=validators.in_(["dcd", "pdb"]))
+    # False by default so egress trajectories are continuous (no PBC wraps)
+    # for pathway clustering / RMSD analysis.
     enforce_periodic_box: bool = field(
-        default=True,
+        default=False,
         validator=validators.instance_of(bool))
     # Selection name string (resolved in make_reporter), or None.
     atom_subset: str | None = field(

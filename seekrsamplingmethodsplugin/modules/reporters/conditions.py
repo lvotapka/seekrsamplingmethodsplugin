@@ -11,7 +11,7 @@ import typing
 from attrs import define, field, validators
 
 
-INEqualities = typing.Literal[
+Inequalities = typing.Literal[
     "greater_than",
     "less_than",
     "greater_than_or_equal_to",

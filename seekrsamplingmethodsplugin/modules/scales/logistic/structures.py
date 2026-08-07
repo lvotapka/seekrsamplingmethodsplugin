@@ -16,11 +16,16 @@ import seekr.modules.scales.logistic.base as logistic_base
 import seekrsamplingmethodsplugin.modules.scales.logistic\
     .swarm_structure_from_reporter_logistic_stage \
         as swarm_structure_from_reporter_logistic_stage
+import seekrsamplingmethodsplugin.modules.scales.logistic\
+    .egress_pathway_logistic_stage \
+        as egress_pathway_logistic_stage
 
 stage_types_logistic \
         = {"swarm_structures_from_reporter_stage": 
                 swarm_structure_from_reporter_logistic_stage\
                     .Stage_swarm_structures_from_reporter,
+        "egress_pathway_stage": 
+                egress_pathway_logistic_stage.Stage_egress_pathway,
         }
 
 def struct_logistic_sampling_method(

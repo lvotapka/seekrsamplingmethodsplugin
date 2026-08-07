@@ -12,7 +12,9 @@ import seekr.modules.structures as structures
 import seekrsamplingmethodsplugin.modules.scales.logistic\
     .swarm_structure_from_reporter_logistic_stage \
         as swarm_structure_from_reporter_logistic_stage
-
+import seekrsamplingmethodsplugin.modules.scales.logistic\
+    .egress_pathway_logistic_stage \
+        as egress_pathway_logistic_stage
 # This dictionary is needed to structure/unstructure prepare stage objects.
 
 def generate_files(
@@ -37,7 +39,9 @@ def generate_files(
 stage_inputs: typing.Dict[str, typing.Any] \
     = {"swarm_structures_from_reporter_stage": \
         swarm_structure_from_reporter_logistic_stage\
-            .Input_stage_swarm_structures_from_reporter, }
+            .Input_stage_swarm_structures_from_reporter, 
+        "egress_pathway_stage": \
+            egress_pathway_logistic_stage.Input_stage_egress_pathway, }
 
 def register_structure_hooks(
         converter: typing.Any

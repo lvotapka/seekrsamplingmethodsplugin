@@ -139,7 +139,7 @@
             "name": "ramd",
             "input_stage_name": null,
             "run_minimization": false,
-            "checkpoint_interval": 10,
+            "checkpoint_interval": 50,
             "ensemble": {
                 "type": "NVT"
             },
@@ -150,16 +150,29 @@
                 "receptor_selection_name": "host",
                 "steps_per_update": 50,
                 "force_magnitude": 2.5,
-                "cutoff_distance": 0.025,
+                "cutoff_distance": 0.0025,
                 "ramp_start_step": 0,
                 "ramp_force_increase_per_step": 4e-07
             },
             "completion_criteria": {
-                "type": "cv_value_attained",
-                "eval_interval": 50,
-                "cv_name": "distance_host_guest",
-                "cv_inequality": "greater_than",
-                "cv_value": 3.0
+                "type": "combined",
+                "completion_criteria": [
+                    {
+                        "type": "cv_value_attained",
+                        "eval_interval": 50,
+                        "cv_name": "rmsd_guest",
+                        "cv_inequality": "greater_than",
+                        "cv_value": 0.5
+                    },
+                    {
+                        "type": "cv_value_attained",
+                        "eval_interval": 50,
+                        "cv_name": "min_dist_guest",
+                        "cv_inequality": "greater_than",
+                        "cv_value": 0.8
+                    }
+                ],
+                "operator": "and"
             },
             "restraints": [
                 {
@@ -177,49 +190,62 @@
                     "interval": 5000
                 },
                 {
-                    "type": "position",
-                    "name": null,
-                    "interval": 500,
-                    "enforce_periodic_box": true,
+                    "type": "conditional_position",
+                    "name": "stage3_conditional_reporter",
+                    "interval": 50,
+                    "extension": "dcd",
+                    "enforce_periodic_box": false,
                     "atom_subset": null,
-                    "extension": "dcd"
-                },
-                {
-                    "type": "feature",
-                    "name": "stage3_feature_reporter",
-                    "interval": 500,
-                    "features": [
+                    "operator": "or",
+                    "conditions": [
                         {
-                            "atom_i": 15,
-                            "atom_j": [147,150,152,155,158],
-                            "type": "pair_distance",
-                            "name": "host_O5_guest_noH"
+                            "cv_name": "rmsd_guest",
+                            "cv_value": 0.2,
+                            "type": "cv_threshold",
+                            "cv_inequality": "greater_than"
                         },
                         {
-                            "atom_i": 147,
-                            "atom_j": 150,
-                            "atom_k": 152,
-                            "atom_l": 155,
-                            "type": "dihedral",
-                            "name": null
+                            "cv_name": "min_dist_guest",
+                            "cv_value": 0.6,
+                            "type": "cv_threshold",
+                            "cv_inequality": "greater_than"
                         }
                     ]
                 }
             ],
             "timestep": null
+        },
+        {
+            "type": "egress_pathway_stage",
+            "name": "egress_pathway",
+            "comment": "Assign egress pathways from a previous stage.",
+            "input_stage_name": "ramd",
+            "set_name": "main",
+            "reporter_name": "stage3_conditional_reporter",
+            "ligand_selection_name": "guest",
+            "receptor_selection_name": "host"
         }
     ],
     "partitions": [
         {
             "cvs": [
                 {
-                    "type": "distance",
-                    "name": "distance_host_guest",
-                    "group1_name": "host",
-                    "group2_name": "guest",
+                    "name": "rmsd_guest",
+                    "group_name": "guest",
+                    "ref_structure": "/home/lvotapka/seekr/seekr/data/hostguest_files/hostguest_at0.5.pdb",
+                    "type": "rmsd_no_align",
                     "_index": 0,
                     "min_value": 0.0,
                     "max_value": 3.0
+                },
+                {
+                    "name": "min_dist_guest",
+                    "group1_name": "host",
+                    "group2_name": "guest",
+                    "type": "min_pair_dist",
+                    "_index": 0,
+                    "min_value": 0.0,
+                    "max_value": 1.0
                 }
             ],
             "state_points": [],

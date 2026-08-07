@@ -29,6 +29,8 @@ class Random_accelerated_md_sampling_method(sampling_methods_structures.Base_md_
     force_magnitude: float = field(default=14.0,
                                    validator=[validators.instance_of(float),
                                               validators.gt(0)])
+    # Minimum COM travel between force retargets, in nanometers (openmm_ramd
+    # RAMD_cutoff_distance convention). Default 0.0025 nm = 0.025 Å.
     cutoff_distance: float = field(default=0.0025,
                                    validator=[validators.instance_of(float),
                                               validators.gt(0)])

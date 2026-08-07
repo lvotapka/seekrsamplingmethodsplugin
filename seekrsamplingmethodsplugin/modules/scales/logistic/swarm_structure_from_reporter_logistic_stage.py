@@ -286,9 +286,8 @@ def _get_topology_file(
             f"toy.pdb not found in the input stage directory: {toy_pdb}"
         return toy_pdb
     else:
-        # TODO: handle situations where this is anchor scope, not
-        # merely unpartitioned scope.
         if input_stage.scope == "unpartitioned":
+            # Get topology from the initial stage
             input_positions_filenames = md_engine.unpartitioned_settings\
                 .get_positions_full_paths(
                     #model.directory, input_stage.input_stage_index, 
