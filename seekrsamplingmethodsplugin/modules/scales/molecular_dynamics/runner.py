@@ -71,7 +71,7 @@ def is_finished_md_with_message(
                 if use_json:
                     return True, False, {
                         "completion_criteria": completion_criteria.type,
-                        "attained": False,
+                        "finished": False,
                         "progress": 0.0,
                         "cv_value_reached": None,
                         "cv_value_needed_for_completion": completion_criteria.cv_value
@@ -93,14 +93,14 @@ def is_finished_md_with_message(
         if use_json:
             incomplete_message = {
                 "completion_criteria": completion_criteria.type,
-                "attained": False,
+                "finished": False,
                 "progress": progress,
                 "cv_value_reached": cv_value,
                 "cv_value_needed_for_completion": completion_criteria.cv_value
             }
             complete_message = {
                 "completion_criteria": completion_criteria.type,
-                "attained": True,
+                "finished": True,
                 "progress": progress,
                 "cv_value_reached": cv_value,
                 "cv_value_needed_for_completion": completion_criteria.cv_value
@@ -149,7 +149,7 @@ def is_finished_md_with_message(
                 / len(messages) if len(messages) > 0 else 0.0
             message = {
                 "completion_criteria": completion_criteria.type,
-                "attained": ending,
+                "finished": ending,
                 "progress": total_progress,
                 "messages": messages
             }

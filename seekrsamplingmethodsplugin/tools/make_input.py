@@ -43,6 +43,10 @@ import seekrsamplingmethodsplugin.modules.collective_variables.rmsd_no_align_cv 
     as plugin_rmsd_no_align_cv
 import seekrsamplingmethodsplugin.modules.collective_variables.min_pair_dist_cv \
     as plugin_min_pair_dist_cv
+import seekrsamplingmethodsplugin.modules.collective_variables.z_cv \
+    as plugin_z_cv
+import seekrsamplingmethodsplugin.modules.collective_variables.xy_cv \
+    as plugin_xy_cv
 import seekrsamplingmethodsplugin.modules.completion_criteria.structures \
     as plugin_compl_crit_struct
 import seekrsamplingmethodsplugin.modules.scales.logistic\
@@ -229,10 +233,16 @@ def create_host_guest_example_input(
         ff: str = "amber",
         use_rmsd_cv: bool = False,
         use_sda: bool = False,
-        use_smd: bool = False
+        use_smd: bool = False,
+        use_z_cv: bool = False,
+        use_xy_cv: bool = False,
         ) -> preparer.Seekr_input:
     """
     Create an example input object for loading and testing in SEEKR.
+
+    If use_z_cv and/or use_xy_cv is True, the partition CVs and RAMD
+    completion criteria use those CVs instead of RMSD + min_pair_dist,
+    and the egress-pathway stage is omitted.
     """
     amber_prmtop_filename = os.path.join(HOSTGUEST_DIRECTORY, "hostguest.parm7")
     forcefield_built_in_ff_list = ["amber14/tip3pfb.xml"]
@@ -375,42 +385,113 @@ def create_host_guest_example_input(
     stage3.checkpoint_interval = 50
     stage3.ensemble = base.NVT_ensemble()
 
-    rmsd_escaped = 0.5
-    rmsd_guest_cv_input = plugin_rmsd_no_align_cv.RMSD_no_align_CV_input()
-    rmsd_guest_cv_input.name = "rmsd_guest"
-    rmsd_guest_cv_input.group_name = "guest"
-    rmsd_guest_cv_input.ref_structure = os.path.join(
-        HOSTGUEST_DIRECTORY, "hostguest_at0.5.pdb")
-    rmsd_guest_cv_input.min_value = 0.0
-    rmsd_guest_cv_input.max_value = 3.0
-    rmsd_guest_cv_compl_crit = plugin_compl_crit_struct\
-        .CV_value_attained_completion_criteria()
-    rmsd_guest_cv_compl_crit.eval_interval = 50
-    rmsd_guest_cv_compl_crit.cv_name = "rmsd_guest"
-    rmsd_guest_cv_compl_crit.cv_inequality = "greater_than"
-    rmsd_guest_cv_compl_crit.cv_value = rmsd_escaped
+    use_z_xy_mode = use_z_cv or use_xy_cv
+    partition_cvs = []
+    completion_criteria_list = []
+    conditional_conditions = []
 
-    min_dist_guest_cv_input = plugin_min_pair_dist_cv.Min_pair_dist_CV_input()
-    min_dist_guest_cv_input.name = "min_dist_guest"
-    min_dist_guest_cv_input.group1_name = "host"
-    min_dist_guest_cv_input.group2_name = "guest"
-    min_dist_guest_cv_input.cutoff_distance = 1.0
-    min_dist_guest_cv_input.exponent = 50
-    min_dist_guest_cv_input.min_value = 0.0
-    min_dist_guest_cv_input.max_value = 1.0
-    min_dist_guest_cv_compl_crit = plugin_compl_crit_struct\
-        .CV_value_attained_completion_criteria()
-    min_dist_guest_cv_compl_crit.eval_interval = 50
-    min_dist_guest_cv_compl_crit.cv_name = "min_dist_guest"
-    min_dist_guest_cv_compl_crit.cv_inequality = "greater_than"
-    min_dist_guest_cv_compl_crit.cv_value = 0.8
-    
-    stage3.completion_criteria = plugin_compl_crit_struct\
-        .Combined_completion_criteria()
-    stage3.completion_criteria.completion_criteria \
-        = [rmsd_guest_cv_compl_crit, 
-           min_dist_guest_cv_compl_crit]
-    stage3.completion_criteria.operator = "and"
+    if use_z_xy_mode:
+        if use_z_cv:
+            z_guest_cv_input = plugin_z_cv.Z_CV_input()
+            z_guest_cv_input.name = "z_guest"
+            z_guest_cv_input.group1_name = "host"
+            z_guest_cv_input.group2_name = "guest"
+            z_guest_cv_input.min_value = -2.0
+            z_guest_cv_input.max_value = 2.0
+            partition_cvs.append(z_guest_cv_input)
+
+            z_compl_crit = plugin_compl_crit_struct\
+                .CV_value_attained_completion_criteria()
+            z_compl_crit.eval_interval = 50
+            z_compl_crit.cv_name = "z_guest"
+            z_compl_crit.cv_inequality = "greater_than"
+            z_compl_crit.cv_value = 1.0
+            completion_criteria_list.append(z_compl_crit)
+
+            conditional_conditions.append(
+                plugin_conditions.CV_threshold_condition(
+                    cv_name="z_guest",
+                    cv_inequality="greater_than",
+                    cv_value=0.5))
+
+        if use_xy_cv:
+            xy_guest_cv_input = plugin_xy_cv.XY_CV_input()
+            xy_guest_cv_input.name = "xy_guest"
+            xy_guest_cv_input.group1_name = "host"
+            xy_guest_cv_input.group2_name = "guest"
+            xy_guest_cv_input.min_value = 0.0
+            xy_guest_cv_input.max_value = 2.0
+            partition_cvs.append(xy_guest_cv_input)
+
+            xy_compl_crit = plugin_compl_crit_struct\
+                .CV_value_attained_completion_criteria()
+            xy_compl_crit.eval_interval = 50
+            xy_compl_crit.cv_name = "xy_guest"
+            xy_compl_crit.cv_inequality = "greater_than"
+            xy_compl_crit.cv_value = 0.8
+            completion_criteria_list.append(xy_compl_crit)
+
+            conditional_conditions.append(
+                plugin_conditions.CV_threshold_condition(
+                    cv_name="xy_guest",
+                    cv_inequality="greater_than",
+                    cv_value=0.5))
+    else:
+        rmsd_escaped = 0.5
+        rmsd_guest_cv_input = plugin_rmsd_no_align_cv.RMSD_no_align_CV_input()
+        rmsd_guest_cv_input.name = "rmsd_guest"
+        rmsd_guest_cv_input.group_name = "guest"
+        rmsd_guest_cv_input.ref_structure = os.path.join(
+            HOSTGUEST_DIRECTORY, "hostguest_at0.5.pdb")
+        rmsd_guest_cv_input.min_value = 0.0
+        rmsd_guest_cv_input.max_value = 3.0
+        partition_cvs.append(rmsd_guest_cv_input)
+
+        rmsd_guest_cv_compl_crit = plugin_compl_crit_struct\
+            .CV_value_attained_completion_criteria()
+        rmsd_guest_cv_compl_crit.eval_interval = 50
+        rmsd_guest_cv_compl_crit.cv_name = "rmsd_guest"
+        rmsd_guest_cv_compl_crit.cv_inequality = "greater_than"
+        rmsd_guest_cv_compl_crit.cv_value = rmsd_escaped
+        completion_criteria_list.append(rmsd_guest_cv_compl_crit)
+
+        min_dist_guest_cv_input = plugin_min_pair_dist_cv.Min_pair_dist_CV_input()
+        min_dist_guest_cv_input.name = "min_dist_guest"
+        min_dist_guest_cv_input.group1_name = "host"
+        min_dist_guest_cv_input.group2_name = "guest"
+        min_dist_guest_cv_input.cutoff_distance = 1.0
+        min_dist_guest_cv_input.exponent = 50
+        min_dist_guest_cv_input.min_value = 0.0
+        min_dist_guest_cv_input.max_value = 1.0
+        partition_cvs.append(min_dist_guest_cv_input)
+
+        min_dist_guest_cv_compl_crit = plugin_compl_crit_struct\
+            .CV_value_attained_completion_criteria()
+        min_dist_guest_cv_compl_crit.eval_interval = 50
+        min_dist_guest_cv_compl_crit.cv_name = "min_dist_guest"
+        min_dist_guest_cv_compl_crit.cv_inequality = "greater_than"
+        min_dist_guest_cv_compl_crit.cv_value = 0.8
+        completion_criteria_list.append(min_dist_guest_cv_compl_crit)
+
+        conditional_conditions = [
+            plugin_conditions.CV_threshold_condition(
+                cv_name="rmsd_guest",
+                cv_inequality="greater_than",
+                cv_value=0.2),
+            plugin_conditions.CV_threshold_condition(
+                cv_name="min_dist_guest",
+                cv_inequality="greater_than",
+                cv_value=0.6),
+        ]
+
+    if len(completion_criteria_list) == 1:
+        stage3.completion_criteria = completion_criteria_list[0]
+    else:
+        stage3.completion_criteria = plugin_compl_crit_struct\
+            .Combined_completion_criteria()
+        stage3.completion_criteria.completion_criteria \
+            = completion_criteria_list
+        stage3.completion_criteria.operator = "and"
 
     positional_restraint = restraints_preparer.Positional_restraint_input()
     positional_restraint.selection_name = "o5_group"
@@ -419,27 +500,6 @@ def create_host_guest_example_input(
     stage3_state_reporter.to_stdout = True
     stage3_state_reporter.interval = 5000
 
-    """
-    # Example Feature_reporter: one pair_distance (atom vs COM) and one dihedral.
-    stage3_feature_reporter = plugin_reporters_preparer.Feature_reporter_input()
-    stage3_feature_reporter.name = "stage3_feature_reporter"
-    stage3_feature_reporter.interval = 500
-    stage3_feature_reporter.features = [
-        plugin_features.Pair_distance_feature(
-            atom_i=15,
-            atom_j=ligand_noh_indices_md,
-            name="host_O5_guest_noH",
-        ),
-        plugin_features.Dihedral_feature(
-            atom_i=147,
-            atom_j=150,
-            atom_k=152,
-            atom_l=155,
-        ),
-    ]
-    """
-    start_traj_rmsd = 0.2
-    start_traj_min_dist = 0.6
     stage3_conditional_reporter = plugin_reporters_preparer\
         .Conditional_position_reporter_input()
     stage3_conditional_reporter.name = "stage3_conditional_reporter"
@@ -447,30 +507,22 @@ def create_host_guest_example_input(
     stage3_conditional_reporter.extension = "dcd"
     stage3_conditional_reporter.enforce_periodic_box = False
     stage3_conditional_reporter.operator = "or"
-    stage3_conditional_reporter.conditions = [
-        plugin_conditions.CV_threshold_condition(
-            cv_name="rmsd_guest",
-            cv_inequality="greater_than",
-            cv_value=start_traj_rmsd),
-        plugin_conditions.CV_threshold_condition(
-            cv_name="min_dist_guest",
-            cv_inequality="greater_than",
-            cv_value=start_traj_min_dist),
-    ]
+    stage3_conditional_reporter.conditions = conditional_conditions
     stage3.reporters = [
         stage3_state_reporter, stage3_conditional_reporter]
 
-    stage4 = egress_pathway_logistic_stage.Input_stage_egress_pathway()
-    stage4.name = "egress_pathway"
-    stage4.reporter_name = "stage3_conditional_reporter"
-    stage4.input_stage_name = "ramd"
-    stage4.ligand_selection_name = "guest"
-    stage4.receptor_selection_name = "host"
-
-    seekr_input.stages = [stage1, stage2, stage3, stage4]
+    seekr_input.stages = [stage1, stage2, stage3]
+    if not use_z_xy_mode:
+        stage4 = egress_pathway_logistic_stage.Input_stage_egress_pathway()
+        stage4.name = "egress_pathway"
+        stage4.reporter_name = "stage3_conditional_reporter"
+        stage4.input_stage_name = "ramd"
+        stage4.ligand_selection_name = "guest"
+        stage4.receptor_selection_name = "host"
+        seekr_input.stages.append(stage4)
     
     seekr_input.partitions = [preparer.Partition_input()]
-    seekr_input.partitions[0].cvs = [rmsd_guest_cv_input, min_dist_guest_cv_input]
+    seekr_input.partitions[0].cvs = partition_cvs
     seekr_input.partitions[0].anchor_scheme = None
 
     return seekr_input
@@ -484,6 +536,14 @@ if __name__ == "__main__":
         "-t", "--toy_mode", dest="toy_mode", default=False, 
         help="Toggle toy mode: whether a sample toy system is generated.", 
         action="store_true")
+    argparser.add_argument(
+        "--z-cv", dest="use_z_cv", default=False,
+        help="Use Z CV (host-guest COM z difference) instead of RMSD/min_pair_dist.",
+        action="store_true")
+    argparser.add_argument(
+        "--xy-cv", dest="use_xy_cv", default=False,
+        help="Use XY CV (host-guest cylindrical rho) instead of RMSD/min_pair_dist.",
+        action="store_true")
     #argparser.add_argument(
     #    "-s", "--smd", dest="smd", default=False, 
     #    help="Use scaled MD instead of RAMD.", 
@@ -496,6 +556,8 @@ if __name__ == "__main__":
     argspace = argparser.parse_args()
     args = vars(argspace)
     toy_mode = args["toy_mode"]
+    use_z_cv = args["use_z_cv"]
+    use_xy_cv = args["use_xy_cv"]
     #use_smd = args["smd"]
     #use_2cvs = args["two_cvs"]
     
@@ -504,9 +566,20 @@ if __name__ == "__main__":
         json_filename = "toy_input.json"
         seekr_input = create_toy_model_input(root_dir)
     else:
-        root_dir = "~/tmp/seekrsamplingmethodsplugin_test"
-        json_filename = "hostguest_input.json"
-        seekr_input = create_host_guest_example_input(root_dir)
+        
+        suffix_parts = []
+        if use_z_cv:
+            suffix_parts.append("z")
+        if use_xy_cv:
+            suffix_parts.append("xy")
+        if suffix_parts:
+            json_filename = f"hostguest_input_{'_'.join(suffix_parts)}.json"
+            root_dir = f"~/tmp/seekrsamplingmethodsplugin_test_{'_'.join(suffix_parts)}"
+        else:
+            json_filename = "hostguest_input.json"
+            root_dir = "~/tmp/seekrsamplingmethodsplugin_test"
+        seekr_input = create_host_guest_example_input(
+            root_dir, use_z_cv=use_z_cv, use_xy_cv=use_xy_cv)
     
     seekr_input_dict = unstructure(seekr_input)
     seekr_input_dict = base.wrap_noindent_integers(seekr_input_dict)

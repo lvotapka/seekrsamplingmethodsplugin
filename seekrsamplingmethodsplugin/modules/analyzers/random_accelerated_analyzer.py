@@ -19,45 +19,51 @@ import seekr.modules.structures as structures
 import seekr.modules.analyzers.base as analyzers_base
 
 DEFAULT_NUM_ERROR_SAMPLES = 200
-BOOTSTRAP_FRACTION = 0.8
 DEFAULT_NUM_WINDOWS = 5
+
 
 def bootstrap_ramd(
         lengths_steps: list[float],
-        num_error_samples: int | None, 
-        random_seed: int | None, 
+        num_error_samples: int | None,
+        random_seed: int | None,
         timestep: float,
-        ) -> tuple[float | None, float | None]:
+        ) -> tuple[float | None, float | None, float | None, float | None]:
+    """
+    Bootstrap the mean and median escape times.
+
+    Returns
+    -------
+    tau_err_mean, tau_err_mean_stdev, tau_err_median, tau_err_median_stdev
+        Mean/median of the bootstrap distribution of the mean/median, and the
+        corresponding sample standard deviations (all in the same time units
+        as ``timestep``). Returns Nones if fewer than 2 escape times.
+    """
+    if len(lengths_steps) < 2:
+        return None, None, None, None
+
     bootstrap_mean_steps = []
     bootstrap_median_steps = []
-    for i in range(num_error_samples or DEFAULT_NUM_ERROR_SAMPLES):
+    n_samples = num_error_samples or DEFAULT_NUM_ERROR_SAMPLES
+    for i in range(n_samples):
         if random_seed is not None:
-            random_seed_i = random_seed + i
-        else:
-            random_seed_i = None
-        random.seed(random_seed_i)
+            random.seed(random_seed + i)
         bootstrap_sample = random.choices(
             lengths_steps, k=len(lengths_steps))
-        bootstrap_mean = statistics.mean(bootstrap_sample)
-        bootstrap_mean_steps.append(bootstrap_mean)
-        bootstrap_median = statistics.median(bootstrap_sample)
-        bootstrap_median_steps.append(bootstrap_median)
+        bootstrap_mean_steps.append(statistics.mean(bootstrap_sample))
+        bootstrap_median_steps.append(statistics.median(bootstrap_sample))
 
-    tau_err_mean = statistics.mean(bootstrap_mean_steps) \
-        * timestep
-    tau_err_mean_stdev = statistics.stdev(bootstrap_mean_steps) \
-        * timestep
-    tau_err_median = statistics.median(bootstrap_median_steps) \
-        * timestep
-    tau_err_median_stdev = statistics.stdev(bootstrap_median_steps) \
-        * timestep
-    
+    tau_err_mean = statistics.mean(bootstrap_mean_steps) * timestep
+    tau_err_mean_stdev = statistics.stdev(bootstrap_mean_steps) * timestep
+    tau_err_median = statistics.median(bootstrap_median_steps) * timestep
+    tau_err_median_stdev = statistics.stdev(bootstrap_median_steps) * timestep
+
     return tau_err_mean, tau_err_mean_stdev, tau_err_median, tau_err_median_stdev
-    
+
+
 @define
 class Ramd_analyzer:
     """
-    Analyze the results of a Random Accelerated Molecular Dynamics 
+    Analyze the results of a Random Accelerated Molecular Dynamics
     (RAMD) calculation.
     """
     model: structures.Seekr_model = field(
@@ -100,10 +106,10 @@ class Ramd_analyzer:
         validators.instance_of(float)))
     tau_err_median_stdev_windows: list[float] = field(
         factory=list, validator=validators.instance_of(list))
-    
+
     def extract_data(self) -> None:
         """
-        Extract the necessary data from the RAMD calculation 
+        Extract the necessary data from the RAMD calculation
         output files.
         """
         stage = self.model.stages[self.stage_index-1]
@@ -125,19 +131,23 @@ class Ramd_analyzer:
 
     def process_data(self) -> None:
         """
-        Process the extracted data to calculate any necessary 
+        Process the extracted data to calculate any necessary
         quantities for analysis.
         """
+        self.tau_mean_windows = []
+        self.tau_median_windows = []
+        self.window_lengths_steps = []
         if self.lengths_steps:
             timestep = self.model.get_timestep_by_type("molecular_dynamics")
             steps_mean = statistics.mean(self.lengths_steps)
             self.tau_mean = steps_mean * timestep
             steps_median = statistics.median(self.lengths_steps)
             self.tau_median = steps_median * timestep
-            
-            # Now handle the windows - a subset of the data up to a step
+
+            # Cumulative windows over the ordered escape-time list: the i-th
+            # window uses the first n_i trajectories (file / swarm order).
             self.window_lengths_steps = np.linspace(
-                0, len(self.lengths_steps), self.num_windows+1, 
+                0, len(self.lengths_steps), self.num_windows+1,
                 dtype=int)[1:].tolist()
             for window_length_steps in self.window_lengths_steps:
                 window_steps = self.lengths_steps[:window_length_steps]
@@ -145,7 +155,7 @@ class Ramd_analyzer:
                 self.tau_mean_windows.append(window_steps_mean * timestep)
                 window_steps_median = statistics.median(window_steps)
                 self.tau_median_windows.append(window_steps_median * timestep)
-        
+
         return
 
     def error_analysis(
@@ -157,17 +167,24 @@ class Ramd_analyzer:
         """
         Perform error analysis on the calculated quantities.
         """
+        self.tau_err_mean_windows = []
+        self.tau_err_mean_stdev_windows = []
+        self.tau_err_median_windows = []
+        self.tau_err_median_stdev_windows = []
+
         if len(self.lengths_steps) < 2:
             # Not enough data for error analysis
             self.tau_err_mean = None
-            self.tau_err_mean_windows = [None] * len(self.window_lengths_steps)
             self.tau_err_median = None
-            self.tau_err_median_windows = [None] * len(self.window_lengths_steps)
             self.tau_err_mean_stdev = None
-            self.tau_err_mean_stdev_windows = [None] * len(self.window_lengths_steps)
             self.tau_err_median_stdev = None
-            self.tau_err_median_stdev_windows = [None] * len(self.window_lengths_steps)
+            n_win = len(self.window_lengths_steps)
+            self.tau_err_mean_windows = [None] * n_win
+            self.tau_err_median_windows = [None] * n_win
+            self.tau_err_mean_stdev_windows = [None] * n_win
+            self.tau_err_median_stdev_windows = [None] * n_win
             return
+
         assert error_analysis_method in ["bootstrap"]
         if error_analysis_method == "bootstrap":
             timestep = self.model.get_timestep_by_type("molecular_dynamics")
@@ -178,10 +195,11 @@ class Ramd_analyzer:
                     timestep=timestep,
                     lengths_steps=self.lengths_steps
                 )
-            # Now handle the windows - a subset of the data up to a step
-            self.window_lengths_steps = np.linspace(
-                0, len(self.lengths_steps), self.num_windows+1, 
-                dtype=int)[1:].tolist()
+            # Ensure window sizes exist even if process_data was not called.
+            if not self.window_lengths_steps:
+                self.window_lengths_steps = np.linspace(
+                    0, len(self.lengths_steps), self.num_windows+1,
+                    dtype=int)[1:].tolist()
             for window_length_steps in self.window_lengths_steps:
                 window_steps = self.lengths_steps[:window_length_steps]
                 tau_err_mean, tau_err_mean_stdev, tau_err_median, \
@@ -197,7 +215,7 @@ class Ramd_analyzer:
                 self.tau_err_median_stdev_windows.append(tau_err_median_stdev)
 
         return
-    
+
     def get_statistics_message(
             self,
             model: structures.Seekr_model,
@@ -208,14 +226,14 @@ class Ramd_analyzer:
 
         """
         if use_json:
-            final_message = {"escape_events_counted": 
+            final_message = {"escape_events_counted":
                              len(self.lengths_steps)}
         else:
             final_message = f"  escape events counted: "\
                 f"{len(self.lengths_steps)}\n  "
 
         return final_message
-    
+
     def print_results(self):
         """Print all results of the analysis calculation."""
         print("Printing results from RAMD SEEKR calculation")
@@ -227,23 +245,23 @@ class Ramd_analyzer:
             print("Tau (ps) - median:",
                   analyzers_base.pretty_string_value_error(
                     self.tau_median, self.tau_err_median_stdev))
-        
+
         return
-    
+
     def make_image_directory(
-            self, 
+            self,
             image_directory: str
             ) -> None:
         """
-        Create the directory and sub-directories for images to be 
-        written. 
+        Create the directory and sub-directories for images to be
+        written.
         """
         if image_directory != "" and not os.path.exists(image_directory):
             os.mkdir(image_directory)
         return
-    
+
     def save_plots(
-            self, 
+            self,
             image_directory: str
             ) -> None:
         """
@@ -254,38 +272,69 @@ class Ramd_analyzer:
         filename = os.path.join(image_directory, "tau_mean_convergence.png")
         tau_mean_conv = np.array(self.tau_mean_windows)
         tau_err_mean_stdev_windows = np.array(self.tau_err_mean_stdev_windows)
-        ret = analyzers_base.plot_scalar_conv(
+        analyzers_base.plot_scalar_conv(
             tau_mean_conv, self.window_lengths_steps, filename,
             title="$\\tau_{mean}$ Convergence", label="\\tau_{mean} (ps)",
             conv_errors=tau_err_mean_stdev_windows, return_plot=False)
-        
+
         # Median plots
         filename = os.path.join(image_directory, "tau_median_convergence.png")
         tau_median_conv = np.array(self.tau_median_windows)
         tau_err_median_stdev_windows = np.array(self.tau_err_median_stdev_windows)
-        ret = analyzers_base.plot_scalar_conv(
-            tau_median_conv, self.window_lengths_steps, filename, 
-            title="$\\tau_{median}$ Convergence", label="\\tau_{median} (ps)", 
+        analyzers_base.plot_scalar_conv(
+            tau_median_conv, self.window_lengths_steps, filename,
+            title="$\\tau_{median}$ Convergence", label="\\tau_{median} (ps)",
             conv_errors=tau_err_median_stdev_windows, return_plot=False)
         return
-        
+
     def scramble_me(
             self,
-            random_seed: int | None = None) -> "Ramd_analyzer":
+            random_seed: int | None = None,
+            n_trajectories: int | None = None,
+            num_error_samples: int | None = None,
+            skip_error_analysis: bool = True,
+            ) -> "Ramd_analyzer":
         """
-        Create essentially a copy of this object, but with the data
-        scrambled using sampling with replacement, and then re-calculate 
-        the relevant quantities for the copy. Needed for doing error
-        analysis of a data-series computed quantities, like Spearman rho.
+        Bootstrap-resample escape times and recompute tau statistics.
+
+        Samples **with replacement** from ``lengths_steps`` (the escape
+        times), not from ``window_lengths_steps`` (window sizes). Optional
+        ``n_trajectories`` restricts the population to the first N escapes
+        in file order, which is the correct uncertainty for a cumulative
+        sampling window used in ranking-metric convergence plots.
+
+        Parameters
+        ----------
+        skip_error_analysis :
+            If True (default), only recompute point estimates. Nested
+            bootstraps are expensive and usually unnecessary when this
+            method is itself used inside an outer bootstrap over compounds.
         """
         random.seed(random_seed)
-        new_analyzer = Ramd_analyzer(model=self.model, stage_index=self.stage_index)
-        bootstrap_sample = random.choices(
-            self.window_lengths_steps, k=len(self.window_lengths_steps))
-        new_analyzer.lengths_steps = bootstrap_sample
+        new_analyzer = Ramd_analyzer(
+            model=self.model,
+            stage_index=self.stage_index,
+            num_windows=self.num_windows,
+        )
+        if n_trajectories is None:
+            population = list(self.lengths_steps)
+        else:
+            if n_trajectories < 1:
+                raise ValueError(
+                    "n_trajectories must be >= 1 when provided.")
+            population = list(self.lengths_steps[:n_trajectories])
+        if len(population) == 0:
+            new_analyzer.lengths_steps = []
+            return new_analyzer
+
+        new_analyzer.lengths_steps = random.choices(
+            population, k=len(population))
         new_analyzer.process_data()
-        new_analyzer.error_analysis(error_analysis_method="bootstrap", 
-                                    random_seed=random_seed)
+        if (not skip_error_analysis) and len(new_analyzer.lengths_steps) >= 2:
+            new_analyzer.error_analysis(
+                error_analysis_method="bootstrap",
+                num_error_samples=num_error_samples,
+                random_seed=random_seed)
         return new_analyzer
 
 
@@ -298,14 +347,14 @@ def analyze_random_accelerated(
         num_error_samples: int | None = None
         ) -> Ramd_analyzer:
     """
-    Analyze the results of a Random Accelerated Molecular Dynamics 
+    Analyze the results of a Random Accelerated Molecular Dynamics
     (RAMD) calculation.
-    
+
     Parameters
     ----------
     model : structures.Seekr_model
         The SEEKR model to analyze.
-    
+
     Returns
     -------
     Ramd_analyzer

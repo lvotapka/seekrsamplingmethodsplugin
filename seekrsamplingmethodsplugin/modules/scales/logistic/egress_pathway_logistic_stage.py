@@ -514,7 +514,21 @@ def _min_dist(
                 min_dist = dist
         
     return min_dist
-    
+
+def _image_traj(
+        traj: typing.Any,
+        receptor_indices: list[int],
+        ) -> typing.Any:
+    """
+    Image the trajectory so that the ligand and receptor are in the same box.
+    """
+    atom_list = []
+    for index in receptor_indices:
+        atom_list.append(traj.topology.atom(index))
+    anchor_molecules = [set(atom_list)]
+    traj.image_molecules(inplace=True, anchor_molecules=anchor_molecules)
+    return traj
+
 def _process_position_reporter(
         model: "Seekr_model",
         stage: Stage_egress_pathway,
@@ -548,7 +562,9 @@ def _process_position_reporter(
     for i, traj in enumerate(trajs):
         if traj.n_frames < MIN_TRAJ_FRAMES:
             continue # Skip trajectories that are too short.
-
+        
+        # TODO: image the traj so that the ligand and receptor are in the same box.
+        traj = _image_traj(traj, receptor_indices)
         rmsd_matrix = _make_rmsd_matrix(traj, ligand_indices, receptor_indices)
         smooth_traj = _monte_carlo_equal_spacing(traj, rmsd_matrix)
         smooth_traj_name = os.path.join(full_stage_dir, 
@@ -644,9 +660,15 @@ def is_finished_egress_pathway_logistic_with_message(
     all_have_files = True
     if use_json:
         all_have_files = stage.has_files(model, anchor_index=None)
-        final_message = {
-            "anchor_index": None,
-            "has_files": all_have_files
+        progress = 0.0 if all_have_files else 1.0
+        final_message: dict[str, typing.Any] = {
+            "finished": all_have_files,
+            "progress": progress,
+            "num_swarms": 1,
+            "swarms": {"0":{
+                "finished": all_have_files,
+                "progress": progress,
+            }}
         }
         return all_have_files, final_message
     else:

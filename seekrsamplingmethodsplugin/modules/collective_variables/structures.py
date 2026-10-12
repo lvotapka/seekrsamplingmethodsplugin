@@ -13,6 +13,10 @@ import seekrsamplingmethodsplugin.modules.collective_variables\
     .rmsd_no_align_cv as rmsd_no_align_cv
 import seekrsamplingmethodsplugin.modules.collective_variables\
     .min_pair_dist_cv as min_pair_dist_cv
+import seekrsamplingmethodsplugin.modules.collective_variables\
+    .xy_cv as xy_cv
+import seekrsamplingmethodsplugin.modules.collective_variables\
+    .z_cv as z_cv
 
 #Collective_variable = typing.Union[seekr_cv_structures.Collective_variable,
 #                                   YOUR_cv.YOUR_CV]
@@ -22,4 +26,6 @@ import seekrsamplingmethodsplugin.modules.collective_variables\
 
 cvs: typing.Dict[str, typing.Type[seekr_cv_base.Base_CV]] \
     = {"rmsd_no_align": rmsd_no_align_cv.RMSD_no_align_CV,
-       "min_pair_dist": min_pair_dist_cv.Min_pair_dist_CV}
+       "min_pair_dist": min_pair_dist_cv.Min_pair_dist_CV,
+       "xy": xy_cv.XY_CV,
+       "z": z_cv.Z_CV}

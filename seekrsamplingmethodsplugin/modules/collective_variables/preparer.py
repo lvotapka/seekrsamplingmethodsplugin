@@ -13,6 +13,10 @@ import seekrsamplingmethodsplugin.modules.collective_variables\
     .rmsd_no_align_cv as rmsd_no_align_cv
 import seekrsamplingmethodsplugin.modules.collective_variables\
     .min_pair_dist_cv as min_pair_dist_cv
+import seekrsamplingmethodsplugin.modules.collective_variables\
+    .xy_cv as xy_cv
+import seekrsamplingmethodsplugin.modules.collective_variables\
+    .z_cv as z_cv
 
 # This object connects the name of CV object to the CV_input object:
 # The former is defined for the prepare stage, and is simpler in general.
@@ -21,4 +25,6 @@ import seekrsamplingmethodsplugin.modules.collective_variables\
 
 cv_inputs: typing.Dict[str, typing.Type[seekr_cv_base.Base_CV_input]] \
      = {"rmsd_no_align": rmsd_no_align_cv.RMSD_no_align_CV_input,
-        "min_pair_dist": min_pair_dist_cv.Min_pair_dist_CV_input} 
+        "min_pair_dist": min_pair_dist_cv.Min_pair_dist_CV_input,
+        "xy": xy_cv.XY_CV_input,
+        "z": z_cv.Z_CV_input} 

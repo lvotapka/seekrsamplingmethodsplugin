@@ -313,6 +313,18 @@ class Random_accelerated_md_openmm_interface(
             self._set_new_force_direction()
         
         return False
+
+    def create_openmm_cv_list(self) -> None:
+        """
+        Build CV forces as usual, then disable PBC so escape distances
+        can exceed half the box (unwrapped COM-COM).
+        """
+        super().create_openmm_cv_list()
+        assert self._openmm_cv_list is not None
+        for force in self._openmm_cv_list:
+            if hasattr(force, "setUsesPeriodicBoundaryConditions"):
+                force.setUsesPeriodicBoundaryConditions(False)
+
     
 def assign_sampling_method_interface(
         stage_index: int,

@@ -389,18 +389,30 @@ def is_finished_swarm_structures_from_reporter_logistic_with_message(
         if stage.scope == "partitioned":  
             for anchor in model.anchors:
                 has_files = stage.has_files(model, anchor_index=anchor.index)
+                progress = 0.0 if has_files else 1.0
                 if not has_files:
                     all_have_files = False
                 final_message[anchor.index] = {
-                    "anchor_index": anchor.index,
-                    "has_files": has_files,
+                    "finished": has_files,
+                    "progress": progress,
+                    "num_swarms": 1,
+                    "swarms": {"0":{
+                        "finished": has_files,
+                        "progress": progress,
+                    }}
                 }
             return all_have_files, final_message
         else:
             all_have_files = stage.has_files(model, anchor_index=None)
+            progress = 0.0 if all_have_files else 1.0
             final_message = {
-                "anchor_index": None,
-                "has_files": all_have_files
+                "finished": all_have_files,
+                "progress": progress,
+                "num_swarms": 1,
+                "swarms": {"0":{
+                    "finished": all_have_files,
+                    "progress": progress,
+                }}
             }
             return all_have_files, final_message
     else:
@@ -494,12 +506,18 @@ def do_run_instruction_swarm_structures_from_reporter_logistic(
     # Build (traj, json_data) pairs for every restart file that has a JSON sidecar.
     trajs = []
     for reporter_file in reporter_files:
-        if ext == "pdb":
-            traj = mdtraj.load(reporter_file)
-        elif ext == "dcd":
-            traj = mdtraj.load(reporter_file, top=topology_file)
-        else:
-            raise Exception(f"Unsupported reporter file extension: {ext}")
+        if os.path.getsize(reporter_file) == 0:
+            continue
+        try:
+            if ext == "pdb":
+                traj = mdtraj.load(reporter_file)
+            elif ext == "dcd":
+                traj = mdtraj.load(reporter_file, top=topology_file)
+            else:
+                raise Exception(f"Unsupported reporter file extension: {ext}")
+            
+        except OSError:
+           continue
         trajs.append(traj)
     assert len(trajs) > 0, \
         f"No reporter files found matching: {reporter_glob}"
