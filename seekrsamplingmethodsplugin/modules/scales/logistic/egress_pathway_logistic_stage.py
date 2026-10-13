@@ -14,7 +14,6 @@ from attrs import define, field, validators, Factory
 import numpy as np
 from scipy.spatial import transform
 from scipy.interpolate import splprep, splev
-from sklearn.cluster import AffinityPropagation
 import mdtraj
 import networkx as nx
 
@@ -543,6 +542,7 @@ def _process_position_reporter(
     loops (kinetic traps). The rough trajectory is then smoothed to achieve
     as close to 1.5 A spacing as possible between adjacent frames.
     """
+    from sklearn.cluster import AffinityPropagation
     stage_dir_name = stage.get_directory_name()
     if stage.scope == "unpartitioned":
         full_stage_dir = os.path.join(
