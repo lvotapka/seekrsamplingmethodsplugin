@@ -9,7 +9,6 @@ the appropriate runner functions for each scale.
 import seekr.modules.structures as structures
 import seekr.modules.scales.base as scales_base
 import seekr.modules.engines.structures as engines_structures
-import seekr.modules.scales.structures as scales_structures
 
 #import seekrsamplingmethodsplugin.modules.engines.base as plugin_engines_base
 #import seekrsamplingmethodsplugin.modules.scales.custom_scale.runner as custom_scale_runner
@@ -64,6 +63,8 @@ def is_finished_with_message(
 
     return found, finished, final_message
 
+# TODO: this exists within the base module of seekr, should it be moved there in 
+#  this plugin?
 def construct_anchor_or_unpartitioned_index_list(
         model: structures.Seekr_model,
         stage: scales_base.Base_stage,

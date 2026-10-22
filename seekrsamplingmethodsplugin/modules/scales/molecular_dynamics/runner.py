@@ -62,8 +62,14 @@ def is_finished_md_with_message(
                 .get_checkpoint_information_basename(swarm_id)
             stage_parameter = anchor_or_unpartitioned.stage_parameters[stage.name]
             stage_directory = stage_parameter["directory"]
-            full_directory = os.path.join(
-                model.directory, anchor_or_unpartitioned.directory, stage_directory)
+            if stage.scope == "partitioned":
+                assert anchor_or_unpartitioned is not None
+                full_directory = os.path.join(
+                    model.directory, "anchor_sets", stage.set_name, 
+                    anchor_or_unpartitioned.directory, stage_directory)
+            else:
+                full_directory = os.path.join(
+                    model.directory, anchor_or_unpartitioned.directory, stage_directory)
             checkpoint_information_filename = os.path.join(
                 full_directory, checkpoint_information_basename)
             if not os.path.exists(checkpoint_information_filename):
@@ -89,38 +95,66 @@ def is_finished_md_with_message(
             cv_value = cv_values[cv_index]
 
         done_value = completion_criteria.cv_value
-        progress = max(0.0, min(cv_value / done_value, 1.0))
-        if use_json:
-            incomplete_message = {
-                "completion_criteria": completion_criteria.type,
-                "finished": False,
-                "progress": progress,
-                "cv_value_reached": cv_value,
-                "cv_value_needed_for_completion": completion_criteria.cv_value
-            }
-            complete_message = {
-                "completion_criteria": completion_criteria.type,
-                "finished": True,
-                "progress": progress,
-                "cv_value_reached": cv_value,
-                "cv_value_needed_for_completion": completion_criteria.cv_value
-            }
-        else:
-            incomplete_message = f"System reached a CV value of {cv_value}. "\
-                f"Need to attain a value of {completion_criteria.cv_value} "\
-                f"for completion."
-            complete_message = f"CV value of {cv_value} attained. Required "\
-            f"value of {completion_criteria.cv_value}."
+        #progress = max(0.0, min(cv_value / done_value, 1.0))
         if completion_criteria.cv_inequality == "greater_than":
-            if cv_value > completion_criteria.cv_value:
-                return True, True, complete_message
+            finished = cv_value > done_value
+            if finished:
+                progress = 1.0
+            elif done_value > 0:
+                progress = max(0.0, min(cv_value / done_value, 1.0))
+            elif done_value == 0:
+                progress = 0.0
             else:
-                return True, False, incomplete_message
+                # Target is negative and cv_value is still at or below it.
+                # cv/target is >= 1 on that side, so invert the ratio.
+                progress = max(0.0, min(done_value / cv_value, 1.0))
         elif completion_criteria.cv_inequality == "less_than":
-            if cv_value < completion_criteria.cv_value:
-                return True, True, complete_message
+            finished = cv_value < done_value
+            if finished:
+                progress = 1.0
+            elif done_value > 0:
+                progress = max(0.0, min(done_value / cv_value, 1.0))
+            elif done_value == 0:
+                progress = 0.0
             else:
-                return True, False, incomplete_message
+                # Target is negative and cv_value has not gone below it.
+                if cv_value >= 0:
+                    progress = 0.0
+                else:
+                    progress = max(0.0, min(cv_value / done_value, 1.0))
+
+        else:
+            raise ValueError(
+                "cv_inequality must be 'greater_than' or 'less_than', "
+                f"got {completion_criteria.cv_inequality!r}.")
+                
+        if use_json:
+            if finished:
+                message = {
+                    "completion_criteria": completion_criteria.type,
+                    "finished": True,
+                    "progress": progress,
+                    "cv_value_reached": cv_value,
+                    "cv_value_needed_for_completion": completion_criteria.cv_value
+                }
+            else:
+                message = {
+                    "completion_criteria": completion_criteria.type,
+                    "finished": False,
+                    "progress": progress,
+                    "cv_value_reached": cv_value,
+                    "cv_value_needed_for_completion": completion_criteria.cv_value
+                }
+        else:
+            if finished:
+                message = f"CV value of {cv_value} attained. Required "\
+                    f"value of {completion_criteria.cv_value}."
+            else:
+                message = f"System reached a CV value of {cv_value}. "\
+                    f"Need to attain a value of {completion_criteria.cv_value} "\
+                    f"for completion."
+            
+        return found, finished, message
     
     elif completion_criteria.type == "combined":
         found = True

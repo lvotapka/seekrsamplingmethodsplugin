@@ -24,6 +24,7 @@ import seekrsamplingmethodsplugin.modules.scales.logistic\
 def is_finished_logistic_with_message(
         model: structures.Seekr_model,
         stage: logistic_base.Stage_logistic,
+        anchor_or_unpartitioned: structures.Anchor | None,
         use_json: bool = True
     ) -> tuple[bool, str | dict]:
     """
@@ -35,19 +36,19 @@ def is_finished_logistic_with_message(
         message = {}
     else:
         message = ""
-
+    # TODO: think of a use of anchor_or_unpartitioned here?
     if stage.type == "swarm_structures_from_reporter_stage":
         completed, message \
             = swarm_structure_from_reporter_logistic_stage\
                 .is_finished_swarm_structures_from_reporter_logistic_with_message(
-                    model, stage, use_json=use_json)
+                    model, stage, anchor_or_unpartitioned, use_json=use_json)
         found = True
     
     elif stage.type == "egress_pathway_stage":
         completed, message \
             = egress_pathway_logistic_stage\
                 .is_finished_egress_pathway_logistic_with_message(
-                    model, stage, use_json=use_json)
+                    model, stage, anchor_or_unpartitioned, use_json=use_json)
         found = True
     
     return found, completed, message

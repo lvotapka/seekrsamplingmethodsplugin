@@ -17,6 +17,8 @@ import mdtraj
 from attrs import define, field, validators, Factory
 
 import seekr.modules.base as base
+import seekr.modules.structures as structures
+import seekr.modules.scales.base as scales_base
 import seekr.modules.scales.logistic.base as logistic_scale_base
 
 OUTPUT_POSITIONS_BASENAME_NOEXT = "position"
@@ -377,60 +379,55 @@ def _process_position_reporter(
 def is_finished_swarm_structures_from_reporter_logistic_with_message(
         model: "Seekr_model",
         stage: Stage_swarm_structures_from_reporter,
+        anchor_or_unpartitioned: structures.Anchor | None,
         use_json: bool = True
     ) -> tuple[bool, str | dict]:
     """
     A reassign anchors logistic stage is finished when all of the new anchor
     directories have files in them.
     """
-    all_have_files = True
     if use_json:
-        final_message: dict[int, dict] = {}
-        if stage.scope == "partitioned":  
-            for anchor in model.anchors:
-                has_files = stage.has_files(model, anchor_index=anchor.index)
-                progress = 0.0 if has_files else 1.0
-                if not has_files:
-                    all_have_files = False
-                final_message[anchor.index] = {
-                    "finished": has_files,
-                    "progress": progress,
-                    "num_swarms": 1,
-                    "swarms": {"0":{
-                        "finished": has_files,
-                        "progress": progress,
-                    }}
-                }
-            return all_have_files, final_message
-        else:
-            all_have_files = stage.has_files(model, anchor_index=None)
-            progress = 0.0 if all_have_files else 1.0
-            final_message = {
-                "finished": all_have_files,
+        if stage.scope == "partitioned":
+            assert anchor_or_unpartitioned is not None
+            has_files = stage.has_files(model, anchor_index=anchor_or_unpartitioned.index)
+            progress = 1.0 if has_files else 0.0
+            message = {
+                "finished": has_files,
                 "progress": progress,
                 "num_swarms": 1,
                 "swarms": {"0":{
-                    "finished": all_have_files,
+                    "finished": has_files,
                     "progress": progress,
                 }}
             }
-            return all_have_files, final_message
-    else:
-        message = ""
-        if stage.scope == "partitioned":
-            for anchor in model.anchors:
-                if not stage.has_files(model, anchor_index=anchor.index):
-                    all_have_files = False
-                    message += f"    Anchor {anchor.index} has no structures.\n"
-            if all_have_files:
-                message = "    All anchors assigned structures."
         else:
-            if stage.has_files(model, anchor_index=None):
-                message = "Structures generated."
+            has_files = stage.has_files(model, anchor_index=None)
+            progress = 1.0 if has_files else 0.0
+            message = {
+                "finished": has_files,
+                "progress": progress,
+                "num_swarms": 1,
+                "swarms": {"0":{
+                    "finished": has_files,
+                    "progress": progress,
+                }}
+            }
+        return has_files, message
+    else:
+        if stage.scope == "partitioned":
+            assert anchor_or_unpartitioned is not None
+            has_files = stage.has_files(model, anchor_index=anchor_or_unpartitioned.index)
+            if has_files:
+                message = f"    Anchor {anchor_or_unpartitioned.index} has structures.\n"
             else:
-                all_have_files = False
-                message = "No structures yet generated."
-        return all_have_files, message
+                message = f"    Anchor {anchor_or_unpartitioned.index} has no structures.\n"
+        else:
+            has_files = stage.has_files(model, anchor_index=None)
+            if has_files:
+                message = f"    Structures generated.\n"
+            else:
+                message = f"    Structures not generated.\n"
+        return has_files, message
 
 def choose_next_simulation_swarm_structures_from_reporter_logistic(
         model: "Seekr_model",
@@ -443,10 +440,24 @@ def choose_next_simulation_swarm_structures_from_reporter_logistic(
     Choose the next simulation to run for a swarm structures from reporter logistic stage.
     """
     run_instructions: list[typing.NamedTuple] = []
-    completed, message \
-        = is_finished_swarm_structures_from_reporter_logistic_with_message(
-            model, stage, use_json)
-    if not completed or force_overwrite:
+    all_completed = True
+    message: str | dict = ""
+    anchor_or_unpartitioned_index_list = scales_base\
+        .construct_anchor_or_unpartitioned_index_list(model, stage, "any")
+    for anchor_or_unpartitioned_index in anchor_or_unpartitioned_index_list:
+        if anchor_or_unpartitioned_index is None:
+            anchor_or_unpartitioned = None
+        else:
+            anchor_or_unpartitioned = model.anchors[anchor_or_unpartitioned_index]
+            if anchor_or_unpartitioned.bulk_anchor:
+                continue
+        completed, message \
+            = is_finished_swarm_structures_from_reporter_logistic_with_message(
+                model, stage, anchor_or_unpartitioned, use_json)
+        if not completed:
+            all_completed = False
+            
+    if not all_completed or force_overwrite:
         run_instruction = logistic_scale_base.Run_instruction_logistic(
             anchor_index=None,
             swarm_id=0,
