@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "versioningit~=2.0"]
+requires = ["setuptools>=61.0", "versioningit>=3.0,<4"]
 build-backend = "setuptools.build_meta"
 
 # Self-descriptive entries which should always be present
@@ -66,7 +66,6 @@ seekrsamplingmethodsplugin = [
 ]
 
 [tool.versioningit]
-default-version = "1+unknown"
 
 [tool.versioningit.format]
 distance = "{base_version}+{distance}.{vcs}{rev}"
@@ -74,11 +73,9 @@ dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
 distance-dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
 
 [tool.versioningit.vcs]
-# The method key:
-method = "git"  # <- The method name
-# Parameters to pass to the method:
-match = ["*"]
-default-tag = "1.0.0"
+method = "git-archive"
+describe-subst = "$Format:%(describe:tags,match=*)$"
+default-tag = "0.0.0"
 
 [tool.versioningit.write]
 file = "seekrsamplingmethodsplugin/_version.py"
