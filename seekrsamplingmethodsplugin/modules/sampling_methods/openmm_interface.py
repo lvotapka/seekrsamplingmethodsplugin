@@ -133,6 +133,7 @@ class Random_accelerated_md_openmm_interface(
         model: structures.Seekr_model = kwargs["model"]
         self._model = model
         self._directory: str = kwargs["directory"]
+        restart = kwargs["restart"]
         md_engine = self._model.get_engine_by_scale_type("molecular_dynamics")
         assert md_engine is not None
         assert md_engine.type == "openmm", \
@@ -210,7 +211,11 @@ class Random_accelerated_md_openmm_interface(
         self._force_object = force
         system.addForce(force)
         assert self._simulation_obj is not None
-        self._simulation_obj.context.reinitialize(preserveState=True)
+        if restart:
+            preserveState=False
+        else:
+            preserveState=True
+        self._simulation_obj.context.reinitialize(preserveState=preserveState)
         self._simulation_obj.context.setParameter(
             "ramd_force_magnitude", self._current_force_magnitude\
                 *kcal_per_mole_per_angstrom)
